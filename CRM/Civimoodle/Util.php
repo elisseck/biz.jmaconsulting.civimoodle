@@ -22,6 +22,41 @@ class CRM_Civimoodle_Util {
     }
   }
 
+  public static function suspendEnrolment($courses, $userID) {
+    foreach ($courses as $courseID) {
+      $criteria = array(
+        'roleid' => 5, //hardcoding for now, 5 is the value for student role ID
+        'userid' => $userID,
+        'courseid' => $courseID,
+        'suspend' => 1,
+      );
+      list($isError, $response) = CRM_Civimoodle_API::singleton($criteria, TRUE)->suspendEnrolment();
+    }
+  }
+
+  public static function activateEnrolment($courses, $userID) {
+    foreach ($courses as $courseID) {
+      $criteria = array(
+        'roleid' => 5, //hardcoding for now, 5 is the value for student role ID
+        'userid' => $userID,
+        'courseid' => $courseID,
+        'suspend' => 0,
+      );
+      list($isError, $response) = CRM_Civimoodle_API::singleton($criteria, TRUE)->enrollUser();
+    }
+  }
+
+  public static function unenrollUser($courses, $userID) {
+    foreach ($courses as $courseID) {
+      $criteria = array(
+        'roleid' => 5, //hardcoding for now, 5 is the value for student role ID
+        'userid' => $userID,
+        'courseid' => $courseID,
+      );
+      list($isError, $response) = CRM_Civimoodle_API::singleton($criteria, TRUE)->unenrollUser();
+    }
+  }
+
   /**
    * Function used to create/update moodle user
    *
@@ -33,7 +68,6 @@ class CRM_Civimoodle_Util {
    */
   public static function createUser($contactID) {
     $usernameKey = self::getCustomFieldKey('username');
-    $passwordKey = self::getCustomFieldKey('password');
     $userIDKey = self::getCustomFieldKey('user_id');
     $result = civicrm_api3('Contact', 'getsingle', array(
       'return' => array(
@@ -41,7 +75,6 @@ class CRM_Civimoodle_Util {
         'first_name',
         'last_name',
         $usernameKey,
-        $passwordKey,
         $userIDKey,
       ),
       'id' => $contactID,
@@ -51,14 +84,14 @@ class CRM_Civimoodle_Util {
       'lastname' => $result['last_name'],
       'email' => $result['email'],
       'username' => $result[$usernameKey],
-      'password' => $result[$passwordKey],
+      'createpassword' => 1,
     );
     $userID = CRM_Utils_Array::value($userIDKey, $result);
 
     // If user ID not found, meaning if moodle user is not created or user ID not found in CiviCRM
     $criterias = array(
-      'username' => $usernameKey,
       'email' => 'email',
+      'username' => $usernameKey,
     );
     if (empty($userID)) {
       // fetch user ID on basis of username OR email
@@ -88,6 +121,8 @@ class CRM_Civimoodle_Util {
     }
     else {
       // create user by calling core_user_create_users
+      // set default username to email for new users to accomodate anonymous users
+      $userParams['username'] = $userParams['email'];
       list($isError, $response) = CRM_Civimoodle_API::singleton($userParams, TRUE)->createUser();
       $response = json_decode($response, TRUE);
       if (!$isError && !empty($response[0])) {
@@ -95,11 +130,10 @@ class CRM_Civimoodle_Util {
       }
     }
 
-    //update user id in contact
+    //update moodle user id in contact
     civicrm_api3('Contact', 'create', array(
       'id' => $contactID,
       $userIDKey => $userID,
-      $passwordKey => '', //clean password if user ID is stored
     ));
 
     return $userID;
@@ -148,22 +182,20 @@ class CRM_Civimoodle_Util {
    * @param int $contactID
    *      CiviCRM contact ID
    *
-   * @return boolean
+   * @return bool
    *
    */
   public static function moodleCredentialPresent($contactID) {
     $usernameKey = self::getCustomFieldKey('username');
-    $passwordKey = self::getCustomFieldKey('password');
     $userIDKey = self::getCustomFieldKey('user_id');
     $result = civicrm_api3('Contact', 'getsingle', array(
       'return' => array(
         $usernameKey,
-        $passwordKey,
         $userIDKey,
       ),
       'id' => $contactID,
     ));
-    return (empty($result[$userIDKey]) && (empty($result[$usernameKey]) && empty($result[$passwordKey])));
+    return (empty($result[$userIDKey]) && (empty($result[$usernameKey])));
   }
 
   /**
@@ -185,4 +217,5 @@ class CRM_Civimoodle_Util {
     }
     return $options;
   }
+
 }

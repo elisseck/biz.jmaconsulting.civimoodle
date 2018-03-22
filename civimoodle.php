@@ -14,7 +14,7 @@ function civimoodle_civicrm_config(&$config) {
 /**
  * Implements hook_civicrm_xmlMenu().
  *
- * @param array $files
+ * param array $files
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_xmlMenu
  */
@@ -81,7 +81,7 @@ function civimoodle_civicrm_fieldOptions($entity, $field, &$options, $params) {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_post
  */
 function civimoodle_civicrm_post($op, $objectName, $objectId, &$objectRef) {
-  if ($objectName == 'Participant' && $op == 'create') {
+  if ($objectName == 'Participant' && $op !== 'delete') {
     // fetch courses from given event ID
     $courses = CRM_Civimoodle_Util::getCoursesFromEvent($objectRef->event_id);
     if (isset($courses) && count($courses) > 0) {
@@ -89,7 +89,22 @@ function civimoodle_civicrm_post($op, $objectName, $objectId, &$objectRef) {
       $userID = CRM_Civimoodle_Util::createUser($objectRef->contact_id);
       // enroll user of given $userID to multiple courses $courses
       if (!empty($userID)) {
-        CRM_Civimoodle_Util::enrollUser($courses, $userID);
+        if ($op == 'create') {
+          CRM_Civimoodle_Util::enrollUser($courses, $userID);
+        }
+        elseif ($op == 'edit') {
+          $result = civicrm_api3('ParticipantStatusType', 'get', array(
+            'sequential' => 1,
+            'return' => array("class"),
+            'id' => $objectRef->status_id,
+          ));
+          if ($result['values'][0]['class'] == 'Negative') {
+            CRM_Civimoodle_Util::suspendEnrolment($courses, $userID);
+          }
+          else {
+            CRM_Civimoodle_Util::activateEnrolment($courses, $userID);
+          }
+        }
       }
     }
   }
@@ -107,7 +122,7 @@ function civimoodle_civicrm_validateForm($formName, &$fields, &$files, &$form, &
       count($courses) > 0 &&
       CRM_Civimoodle_Util::moodleCredentialPresent($form->_contactId)
     ) {
-      $errors['event_id'] = ts('Moodle Username or Password not found.');
+      $errors['event_id'] = ts('Moodle Username not found.');
     }
   }
 }
@@ -115,10 +130,10 @@ function civimoodle_civicrm_validateForm($formName, &$fields, &$files, &$form, &
 /**
  * Implements hook_civicrm_upgrade().
  *
- * @param $op string, the type of operation being performed; 'check' or 'enqueue'
- * @param $queue CRM_Queue_Queue, (for 'enqueue') the modifiable list of pending up upgrade tasks
+ * param $op string, the type of operation being performed; 'check' or 'enqueue'
+ * param $queue CRM_Queue_Queue, (for 'enqueue') the modifiable list of pending up upgrade tasks
  *
- * @return mixed
+ * return mixed
  *   Based on op. for 'check', returns array(boolean) (TRUE if upgrades are pending)
  *                for 'enqueue', returns void
  *
@@ -145,7 +160,7 @@ function civimoodle_civicrm_managed(&$entities) {
  *
  * Generate a list of case-types.
  *
- * @param array $caseTypes
+ * param array $caseTypes
  *
  * Note: This hook only runs in CiviCRM 4.4+.
  *
@@ -166,7 +181,7 @@ function civimoodle_civicrm_caseTypes(&$caseTypes) {
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_caseTypes
  */
 function civimoodle_civicrm_angularModules(&$angularModules) {
-_civimoodle_civix_civicrm_angularModules($angularModules);
+  _civimoodle_civix_civicrm_angularModules($angularModules);
 }
 
 /**
@@ -181,8 +196,8 @@ function civimoodle_civicrm_alterSettingsFolders(&$metaDataFolders = NULL) {
 /**
  * Functions below this ship commented out. Uncomment as required.
  *
-
 /**
+
  * Implements hook_civicrm_preProcess().
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_preProcess

@@ -36,11 +36,11 @@ class CRM_Civimoodle_Upgrader_Base {
    * Obtain a reference to the active upgrade handler.
    */
   static public function instance() {
-    if (! self::$instance) {
+    if (!self::$instance) {
       // FIXME auto-generate
       self::$instance = new CRM_Civimoodle_Upgrader(
         'biz.jmaconsulting.civimoodle',
-        realpath(__DIR__ .'/../../../')
+        realpath(__DIR__ . '/../../../')
       );
     }
     return self::$instance;
@@ -205,7 +205,7 @@ class CRM_Civimoodle_Upgrader_Base {
    * @return array(revisionNumbers) sorted numerically
    */
   public function getRevisions() {
-    if (! is_array($this->revisions)) {
+    if (!is_array($this->revisions)) {
       $this->revisions = array();
 
       $clazz = new ReflectionClass(get_class($this));
@@ -237,8 +237,6 @@ class CRM_Civimoodle_Upgrader_Base {
     CRM_Core_BAO_Setting::setItem($revision, 'Extension', $key);
     return TRUE;
   }
-
-  // ******** Hook delegates ********
 
   public function onInstall() {
     $files = glob($this->extensionDir . '/sql/*_install.sql');
@@ -300,4 +298,5 @@ class CRM_Civimoodle_Upgrader_Base {
       default:
     }
   }
+
 }

@@ -35,7 +35,7 @@ class CRM_Civimoodle_Upgrader extends CRM_Civimoodle_Upgrader_Base {
       'style' => 'Tab',
       'is_active' => 1,
       'collapse_adv_display' => 0,
-      'collapse_display' => 0
+      'collapse_display' => 0,
     ));
     foreach (CRM_Civimoodle_FieldInfo::getAttributes('moodle_credential') as $param) {
       civicrm_api3('custom_field', 'create', array_merge($param, array(
@@ -65,7 +65,7 @@ class CRM_Civimoodle_Upgrader extends CRM_Civimoodle_Upgrader_Base {
       'domain_id' => CRM_Core_Config::domainID(),
       'is_active' => 1,
       'collapse_adv_display' => 0,
-      'collapse_display' => 0
+      'collapse_display' => 0,
     ));
     foreach (CRM_Civimoodle_FieldInfo::getAttributes('moodle_courses') as $param) {
       civicrm_api3('custom_field', 'create', array_merge($param, array(

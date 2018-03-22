@@ -100,6 +100,14 @@ class CRM_Civimoodle_API {
     return $this->sendRequest('enrol_manual_enrol_users');
   }
 
+  public function suspendEnrolment() {
+    return $this->sendRequest('enrol_manual_enrol_users');
+  }
+
+  public function unenrollUser() {
+    return $this->sendRequest('enrol_manual_unenrol_users');
+  }
+
   /**
    * Function used to make Moodle API request
    *
@@ -124,24 +132,35 @@ class CRM_Civimoodle_API {
         break;
 
       case 'core_user_create_users':
-      foreach (array('username', 'password', 'firstname', 'lastname', 'email') as $arg) {
-        $searchArgs[] = "users[0][$arg]=" . $this->_searchParams[$arg];
-      }
-      break;
-
-      case 'core_user_update_users':
-      foreach (array('id', 'firstname', 'lastname', 'email') as $arg) {
-        if (!empty($this->_searchParams[$arg])) {
+        foreach (array('username', 'createpassword', 'firstname', 'lastname', 'email') as $arg) {
           $searchArgs[] = "users[0][$arg]=" . $this->_searchParams[$arg];
         }
-      }
-      break;
+        break;
+
+      case 'core_user_update_users':
+        foreach (array('id', 'firstname', 'lastname', 'email') as $arg) {
+          if (!empty($this->_searchParams[$arg])) {
+            $searchArgs[] = "users[0][$arg]=" . $this->_searchParams[$arg];
+          }
+        }
+        break;
 
       case 'enrol_manual_enrol_users':
         foreach (array('roleid', 'userid', 'courseid') as $arg) {
           $searchArgs[] = "enrolments[0][$arg]=" . $this->_searchParams[$arg];
         }
+        //if we are editing participant records, we need to suspend or activate moodle enrolments
+        if (array_key_exists('suspend', $this->_searchParams)) {
+          $searchArgs[] = "enrolments[0][suspend]=" . $this->_searchParams['suspend'];
+        }
         break;
+
+      case 'enrol_manual_unenrol_users':
+        foreach (array('roleid', 'userid', 'courseid') as $arg) {
+          $searchArgs[] = "enrolments[0][$arg]=" . $this->_searchParams[$arg];
+        }
+        break;
+
       default:
         //do nothing
         break;
@@ -153,7 +172,6 @@ class CRM_Civimoodle_API {
       str_replace(' ', '+', implode('&', $searchArgs))
     );
     list($status, $response) = $this->_httpClient->get($url);
-
     return array(
       self::recordError($response),
       $response,
