@@ -18,42 +18,34 @@ class CRM_Civimoodle_FieldInfo {
   public static function getAttributes($customGroupName) {
     switch ($customGroupName) {
       case 'moodle_credential':
-      return array(
-        'username' => array(
-          'name' => 'username',
-          'label' => ts('Username', array('domain' => 'biz.jmaconsulting.civimoodle')),
-          'text_length' => 20,
-          'data_type' => 'String',
-          'html_type' => 'Text',
-          'weight' => 1,
-        ),
-        'password' => array(
-          'name' => 'password',
-          'label' => ts('Password', array('domain' => 'biz.jmaconsulting.civimoodle')),
-          'text_length' => 20,
-          'data_type' => 'String',
-          'html_type' => 'Text',
-          'weight' => 2,
-        ),
-        'user_id' => array(
-          'name' => 'user_id',
-          'label' => ts('User ID', array('domain' => 'biz.jmaconsulting.civimoodle')),
-          'data_type' => 'Int',
-          'html_type' => 'Text',
-          'is_view' => 1,
-          'weight' => 3,
-        ),
-      );
+        return array(
+          'username' => array(
+            'name' => 'username',
+            'label' => ts('Username', array('domain' => 'biz.jmaconsulting.civimoodle')),
+            'text_length' => 20,
+            'data_type' => 'String',
+            'html_type' => 'Text',
+            'weight' => 1,
+          ),
+          'user_id' => array(
+            'name' => 'user_id',
+            'label' => ts('User ID', array('domain' => 'biz.jmaconsulting.civimoodle')),
+            'data_type' => 'Int',
+            'html_type' => 'Text',
+            'is_view' => 1,
+            'weight' => 3,
+          ),
+        );
 
-      case 'moodle_courses':
-       return array(
-         'courses' => array(
-           'name' => 'courses',
-           'label' => ts('Courses', array('domain' => 'biz.jmaconsulting.civimoodle')),
-           'data_type' => 'String',
-           'html_type' => 'Multi-Select',
-         ),
-       );
+        case 'moodle_courses':
+          return array(
+            'courses' => array(
+              'name' => 'courses',
+              'label' => ts('Courses', array('domain' => 'biz.jmaconsulting.civimoodle')),
+              'data_type' => 'String',
+              'html_type' => 'Multi-Select',
+            ),
+          );
     }
   }
 
