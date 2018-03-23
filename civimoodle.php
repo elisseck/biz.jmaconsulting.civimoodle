@@ -85,7 +85,7 @@ function civimoodle_civicrm_post($op, $objectName, $objectId, &$objectRef) {
     // fetch courses from given event ID
     $courses = CRM_Civimoodle_Util::getCoursesFromEvent($objectRef->event_id);
     if (isset($courses) && count($courses) > 0) {
-      // create/update moodle user based on CiviCRM contact ID informatioon
+      // create/update moodle user based on CiviCRM contact ID information
       $userID = CRM_Civimoodle_Util::createUser($objectRef->contact_id);
       // enroll user of given $userID to multiple courses $courses
       if (!empty($userID)) {
