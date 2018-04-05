@@ -25,6 +25,18 @@ class CRM_Civimoodle_Upgrader extends CRM_Civimoodle_Upgrader_Base {
       )),
       'permission' => 'administer CiviCRM',
     ));
+    civicrm_api3('Navigation', 'create', array(
+      'label' => ts('CiviCRM Moodle Participant Sync', array('domain' => 'biz.jmaconsulting.civimoodle')),
+      'name' => 'moodle_sync',
+      'url' => 'civicrm/moodle/sync?reset=1',
+      'domain_id' => CRM_Core_Config::domainID(),
+      'is_active' => 1,
+      'parent_id' => civicrm_api3('Navigation', 'getvalue', array(
+        'return' => "id",
+        'name' => "System Settings",
+      )),
+      'permission' => 'administer CiviCRM',
+    ));
 
     // Create custom set 'Moodle Credentials'
     $customGroup = civicrm_api3('custom_group', 'create', array(
