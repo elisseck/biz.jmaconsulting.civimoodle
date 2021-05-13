@@ -64,7 +64,7 @@ class CRM_Civimoodle_Util {
    *      CiviCRM contact ID
    *
    * @return int $userID
-   *     Moodle user ID
+   *     Moodle user ID:
    */
   public static function createUser($contactID) {
     $usernameKey = self::getCustomFieldKey('username');
@@ -77,21 +77,27 @@ class CRM_Civimoodle_Util {
         $usernameKey,
         $userIDKey,
       ),
+      'api.UFMatch.getsingle' => [],
       'id' => $contactID,
     ));
+    $drupalservices = "drupalservices";
     $userParams = array(
       'firstname' => $result['first_name'],
       'lastname' => $result['last_name'],
       'email' => $result['email'],
       'username' => $result[$usernameKey],
-      'createpassword' => 1,
-    );
+      'idnumber' => $result['api.UFMatch.getsingle']['uf_id'],
+      'password' => "AnotherTestHello8!",
+      'createpassword' => 0,
+      'auth' => $drupalservices,
+       );
     $userID = CRM_Utils_Array::value($userIDKey, $result);
 
     // If user ID not found, meaning if moodle user is not created or user ID not found in CiviCRM
     $criterias = array(
       'email' => 'email',
       'username' => $usernameKey,
+      'idnumber' => $result['api.UFMatch.getsingle']['uf_id'],	
     );
     if (empty($userID)) {
       // fetch user ID on basis of username OR email

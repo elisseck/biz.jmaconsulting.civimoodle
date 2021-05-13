@@ -132,13 +132,13 @@ class CRM_Civimoodle_API {
         break;
 
       case 'core_user_create_users':
-        foreach (array('username', 'createpassword', 'firstname', 'lastname', 'email') as $arg) {
+        foreach (array('username', 'auth', 'password', 'firstname', 'lastname', 'email', 'idnumber') as $arg) {
           $searchArgs[] = "users[0][$arg]=" . $this->_searchParams[$arg];
         }
         break;
 
       case 'core_user_update_users':
-        foreach (array('id', 'firstname', 'lastname', 'email') as $arg) {
+        foreach (array('id', 'firstname', 'lastname', 'email', 'idnumber') as $arg) {
           if (!empty($this->_searchParams[$arg])) {
             $searchArgs[] = "users[0][$arg]=" . $this->_searchParams[$arg];
           }
