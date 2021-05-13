@@ -62,13 +62,23 @@ class CRM_Civimoodle_Util {
    *
    * @param int $contactID
    *      CiviCRM contact ID
+   * @param bool $ignoreCMSCredential
    *
    * @return int $userID
    *     Moodle user ID:
    */
-  public static function createUser($contactID) {
+  public static function createUser($contactID, $ignoreCMSCredential = FALSE) {
+    $userIDKey = self::getCustomFieldKey('user_id');
+
+    if (Civi::settings()->get('moodle_cms_credential') && !$ignoreCMSCredential) {
+      return civicrm_api3('Contact', 'getvalue', array(
+        'return' => $userIDKey,
+        'id' => $contactID,
+      ));
+    }
     $usernameKey = self::getCustomFieldKey('username');
     $userIDKey = self::getCustomFieldKey('user_id');
+    $passwordKey = self::getCustomFieldKey('password');
     $result = civicrm_api3('Contact', 'getsingle', array(
       'return' => array(
         'email',
@@ -91,13 +101,23 @@ class CRM_Civimoodle_Util {
       'createpassword' => 0,
       'auth' => $drupalservices,
        );
+    if (Civi::settings()->get('moodle_cms_credential')) {
+      global $user;
+      if (!empty($user) && !empty($user->uid)) {
+        $userParams['username'] = !empty($user->name) ? $user->name : $user->mail;
+        $userParams['password'] = 'changeme';
+        if (empty($result[$usernameKey])) {
+          $result[$usernameKey] = $userParams['username'];
+        }
+      }
+    }
     $userID = CRM_Utils_Array::value($userIDKey, $result);
 
     // If user ID not found, meaning if moodle user is not created or user ID not found in CiviCRM
     $criterias = array(
       'email' => 'email',
       'username' => $usernameKey,
-      'idnumber' => $result['api.UFMatch.getsingle']['uf_id'],	
+      'idnumber' => $result['api.UFMatch.getsingle']['uf_id'],
     );
     if (empty($userID)) {
       // fetch user ID on basis of username OR email
@@ -201,7 +221,7 @@ class CRM_Civimoodle_Util {
       ),
       'id' => $contactID,
     ));
-    return (empty($result[$userIDKey]) && (empty($result[$usernameKey])));
+    return (empty($result[$userIDKey]) && (empty($result[$usernameKey]) && empty($result[$passwordKey])));
   }
 
   /**

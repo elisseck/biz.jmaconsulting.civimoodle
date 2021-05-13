@@ -59,6 +59,21 @@ function civimoodle_civicrm_disable() {
 }
 
 /**
+ * Implements hook_civicrm_container().
+ */
+function civimoodle_civicrm_container(\Symfony\Component\DependencyInjection\ContainerBuilder $container) {
+  $container->setDefinition("cache.civiMoodle", new Symfony\Component\DependencyInjection\Definition(
+    'CRM_Utils_Cache_Interface',
+    [
+      [
+        'name' => 'civi-moodle',
+        'type' => ['*memory*', 'SqlGroup', 'ArrayCache'],
+      ],
+    ]
+  ))->setFactory('CRM_Utils_Cache::create')->setPublic(true);
+}
+
+/**
  * Implements hook_civicrm_fieldOptions().
  *
  * @link http://wiki.civicrm.org/confluence/display/CRMDOC/hook_civicrm_fieldOptions
@@ -75,6 +90,44 @@ function civimoodle_civicrm_fieldOptions($entity, $field, &$options, $params) {
   }
 }
 
+function civimoodle_civicrm_buildForm($formName, &$form) {
+  if ($formName == 'CRM_Event_Form_Registration_ThankYou' || $formName == 'CRM_Event_Form_Registration_ParticipantConfirm') {
+    if (Civi::settings()->get('moodle_cms_credential') && function_exists('user_load')) {
+      global $user;
+      if (!empty($user->uid)) {
+        $ufID = $user->uid;
+        $contactID = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_UFMatch', $ufID, 'contact_id', 'uf_id');
+        $result = civicrm_api3('Contact', 'getsingle', array(
+          'return' => array(
+            'email',
+            'first_name',
+            'last_name',
+          ),
+          'id' => $contactID,
+        ));
+        _updateDrupalUserDetails($ufID, $result, TRUE);
+
+        $courses = Civi::cache('civiMoodle')->get('moodle-courses');
+        if (!empty($courses)) {
+          $contactID = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_UFMatch', $ufID, 'contact_id', 'uf_id');
+          $userID = CRM_Civimoodle_Util::createUser($contactID, TRUE);
+          CRM_Civimoodle_Util::enrollUser($courses, $userID);
+
+          $userIDKey = CRM_Civimoodle_Util::getCustomFieldKey('user_id');
+          //update user id in contact
+          civicrm_api3('Contact', 'create', array(
+            'id' => $contactID,
+            $userIDKey => $userID,
+            $passwordKey => '', //clean password if user ID is stored
+          ));
+
+          Civi::cache('civiMoodle')->delete('moodle-courses');
+        }
+      }
+    }
+  }
+}
+
 /**
  * Implements hook_civicrm_post().
  *
@@ -85,8 +138,95 @@ function civimoodle_civicrm_post($op, $objectName, $objectId, &$objectRef) {
     // fetch courses from given event ID
     $courses = CRM_Civimoodle_Util::getCoursesFromEvent($objectRef->event_id);
     if (isset($courses) && count($courses) > 0) {
-      // create/update moodle user based on CiviCRM contact ID information
-      $userID = CRM_Civimoodle_Util::createUser($objectRef->contact_id);
+
+      if (Civi::settings()->get('moodle_cms_credential') && function_exists('user_load')) {
+        $userIDKey = CRM_Civimoodle_Util::getCustomFieldKey('user_id');
+        $passwordKey = CRM_Civimoodle_Util::getCustomFieldKey('password');
+        $result = civicrm_api3('Contact', 'getsingle', array(
+          'return' => array(
+            'email',
+            'first_name',
+            'last_name',
+            $userIDKey,
+          ),
+          'id' => $objectRef->contact_id,
+        ));
+
+        $ufID = CRM_Core_DAO::getFieldValue('CRM_Core_DAO_UFMatch', $objectRef->contact_id, 'uf_id', 'contact_id');
+
+        if (!$ufID) {
+          global $user;
+          if (!empty($user) && !empty($user->uid)) {
+            civicrm_api3('UFMatch', 'create', array(
+              'contact_id' => $objectRef->contact_id,
+              'uf_id' => $user->uid,
+              'uf_name' => $user->mail,
+              'domain_id' => CRM_Core_BAO_Domain::getDomain(),
+            ));
+            $ufID = $user->uid;
+          }
+        }
+
+        $userParams = [
+          'firstname' => $result['first_name'],
+          'lastname' => $result['last_name'],
+          'email' => CRM_Utils_Array::value('email', $result),
+          'username' => $result['first_name'],
+          'password' => 'changeme',
+        ];
+        if ($ufID) {
+          $drupaluser = _updateDrupalUserDetails($ufID, $result);
+          $userParams = array_merge($userParams, [
+            'email' => $drupaluser->mail,
+            'username' => $drupaluser->name,
+          ]);
+        }
+        $userID = CRM_Utils_Array::value($userIDKey, $result);
+
+        if (!empty($userID)) {
+          // If user ID not found, meaning if moodle user is not created or user ID not found in CiviCRM
+          $criterias = array(
+            'username' => $usernameKey,
+            'email' => 'email',
+          );
+          // fetch user ID on basis of username OR email
+          foreach ($criterias as $key => $value) {
+            $criteria = array(
+              'key' => $key,
+              'value' => $result[$value],
+            );
+            list($isError, $response) = CRM_Civimoodle_API::singleton($criteria, TRUE)->getUser();
+            $response = json_decode($response, TRUE);
+
+            // if user found on given 'username' value
+            if (!empty($response['users'])) {
+              $userID = $response['users'][0]['id'];
+            }
+            // break the loop means avoid next criteria search on basis of email if user ID is found
+            if (!empty($userID)) {
+              break;
+            }
+          }
+        }
+
+        if (!empty($userID)) {
+          // update user by calling core_user_update_users
+          $updateParams = array_merge($userParams, array('id' => $userID));
+          list($isError, $response) = CRM_Civimoodle_API::singleton($updateParams, TRUE)->updateUser();
+        }
+
+        //update user id in contact
+        civicrm_api3('Contact', 'create', array(
+          'id' => $objectRef->contact_id,
+          $userIDKey => $userID,
+          $passwordKey => '', //clean password if user ID is stored
+        ));
+      }
+      else {
+        // create/update moodle user based on CiviCRM contact ID information
+        $userID = CRM_Civimoodle_Util::createUser($objectRef->contact_id);
+      }
+
       // enroll user of given $userID to multiple courses $courses
       if (!empty($userID)) {
         if ($op == 'create') {
@@ -106,8 +246,48 @@ function civimoodle_civicrm_post($op, $objectName, $objectId, &$objectRef) {
           }
         }
       }
+      else {
+         Civi::cache('civiMoodle')->delete('moodle-courses');
+         Civi::cache('civiMoodle')->set('moodle-courses', $courses);
+      }
     }
   }
+}
+
+function _updateDrupalUserDetails($ufID, $contactParams, $create = FALSE) {
+  // fetch user details
+  $user = user_load($ufID);
+  $userEditParams = (array) $user;
+  $matchingParams = [
+    'field_first_name',
+    'field_last_name',
+  ];
+  if ($create) {
+    $userEditParams = [
+      'uid' => $ufID,
+      'field_first_name' => NULL,
+      'field_last_name' => NULL,
+    ];
+  }
+  foreach($userEditParams as $attribute => $value) {
+    if (in_array($attribute, $matchingParams) && (!empty($user->$attribute) || $create)) {
+      $paramName = str_replace('field_', '', $attribute);
+      if ($create) {
+        $userEditParams[$attribute]['und'] = [
+          0 => [
+            'value' => CRM_Utils_Array::value($paramName, $contactParams),
+          ],
+        ];
+      }
+      elseif (empty($userEditParams[$attribute]['und'][0]['value'])) {
+        $userEditParams[$attribute]['und'][0]['value'] = CRM_Utils_Array::value($paramName, $contactParams);
+      }
+    }
+  }
+
+  user_save($user, $userEditParams);
+
+  return $user;
 }
 
 /**
