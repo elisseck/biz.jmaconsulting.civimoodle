@@ -115,7 +115,7 @@ class CRM_Civimoodle_Util {
 
     // If user ID not found, meaning if moodle user is not created or user ID not found in CiviCRM
     $criterias = array(
-      'email' => 'email',
+      //'email' => 'email',
       'username' => $usernameKey,
       'idnumber' => $result['api.UFMatch.getsingle']['uf_id'],
     );
